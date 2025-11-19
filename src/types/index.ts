@@ -22,6 +22,8 @@ export interface Article {
   scraped_at?: Date;
   image_url?: string;
   language: string;
+  importance_score?: number;
+  importance_reason?: string;
 }
 
 export interface ScrapedArticle {
@@ -47,4 +49,28 @@ export interface Newsletter {
   status: 'draft' | 'sent' | 'failed';
   substack_post_id?: string;
   recipient_count?: number;
+}
+
+export interface Subscriber {
+  id?: number;
+  email: string;
+  name?: string;
+  language_preference: 'en' | 'mn' | 'both';
+  is_active: boolean;
+  verified: boolean;
+  verification_token?: string;
+  unsubscribe_token?: string;
+  created_at?: Date;
+  updated_at?: Date;
+}
+
+export interface SubscriberCategory {
+  subscriber_id: number;
+  category_id: number;
+  priority: number; // 1-5, where 1 is highest
+}
+
+export interface ArticleImportanceScore {
+  score: number; // 0.0 to 1.0
+  reason: string;
 }

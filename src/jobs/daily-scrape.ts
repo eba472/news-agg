@@ -61,6 +61,10 @@ async function runDailyScrape() {
       }
     }
 
+    // Score articles with Gemini
+    logger.info('\n--- Scoring articles with Gemini AI ---');
+    await processor.scoreArticlesWithGemini();
+
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
     logger.info('\n========================================');

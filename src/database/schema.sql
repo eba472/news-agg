@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS articles (
   scraped_at TIMESTAMP DEFAULT NOW(),
   image_url VARCHAR(1000),
   language VARCHAR(10),
+  importance_score DECIMAL(3,2), -- 0.00 to 1.00, scored by Gemini
+  importance_reason TEXT, -- Why it's important (from Gemini)
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -33,6 +35,7 @@ CREATE TABLE IF NOT EXISTS articles (
 CREATE INDEX IF NOT EXISTS idx_articles_url ON articles(url);
 CREATE INDEX IF NOT EXISTS idx_articles_published_at ON articles(published_at DESC);
 CREATE INDEX IF NOT EXISTS idx_articles_source_id ON articles(source_id);
+CREATE INDEX IF NOT EXISTS idx_articles_importance_score ON articles(importance_score DESC);
 
 -- Categories Table
 CREATE TABLE IF NOT EXISTS categories (
@@ -69,6 +72,34 @@ CREATE TABLE IF NOT EXISTS newsletter_articles (
   position INT,
   PRIMARY KEY (newsletter_id, article_id)
 );
+
+-- Subscribers Table
+CREATE TABLE IF NOT EXISTS subscribers (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  name VARCHAR(255),
+  language_preference VARCHAR(10) DEFAULT 'en', -- 'en', 'mn', or 'both'
+  is_active BOOLEAN DEFAULT true,
+  verified BOOLEAN DEFAULT false,
+  verification_token VARCHAR(255),
+  unsubscribe_token VARCHAR(255) UNIQUE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Subscriber Category Preferences (many-to-many)
+-- Users can select 3-5 categories
+CREATE TABLE IF NOT EXISTS subscriber_categories (
+  subscriber_id INT REFERENCES subscribers(id) ON DELETE CASCADE,
+  category_id INT REFERENCES categories(id) ON DELETE CASCADE,
+  priority INT DEFAULT 1, -- 1-5, where 1 is highest priority
+  PRIMARY KEY (subscriber_id, category_id)
+);
+
+-- Create indexes for subscribers
+CREATE INDEX IF NOT EXISTS idx_subscribers_email ON subscribers(email);
+CREATE INDEX IF NOT EXISTS idx_subscribers_active ON subscribers(is_active);
+CREATE INDEX IF NOT EXISTS idx_subscriber_categories_subscriber ON subscriber_categories(subscriber_id);
 
 -- Insert default categories
 INSERT INTO categories (name, name_mn, name_en) VALUES

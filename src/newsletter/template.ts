@@ -229,4 +229,150 @@ export class NewsletterTemplate {
 
     return text;
   }
+
+  static generatePersonalizedHtml(data: {
+    date: Date;
+    subscriber: any;
+    mongolianNews: any[];
+    globalNews: any[];
+    topCategories: Record<string, any[]>;
+  }): string {
+    const dateStr = data.date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+
+    const subscriberName = data.subscriber.name || 'Reader';
+    const unsubscribeUrl = `${process.env.BASE_URL || 'http://localhost:8080'}/api/unsubscribe/${data.subscriber.unsubscribe_token}`;
+
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Personalized News Digest - ${dateStr}</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background-color: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .greeting {
+      font-size: 18px;
+      color: #007bff;
+      margin-bottom: 10px;
+    }
+    h1 {
+      color: #1a1a1a;
+      border-bottom: 3px solid #007bff;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    h2 {
+      color: #007bff;
+      margin-top: 30px;
+      margin-bottom: 15px;
+      font-size: 24px;
+    }
+    .article {
+      margin-bottom: 25px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #e9ecef;
+    }
+    .article:last-child {
+      border-bottom: none;
+    }
+    .article-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .article-title a {
+      color: #1a1a1a;
+      text-decoration: none;
+    }
+    .article-title a:hover {
+      color: #007bff;
+    }
+    .importance-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      background-color: #28a745;
+      color: white;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: bold;
+      margin-left: 8px;
+    }
+    .article-meta {
+      font-size: 13px;
+      color: #6c757d;
+      margin-bottom: 8px;
+    }
+    .article-summary {
+      color: #495057;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    .source-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background-color: #e9ecef;
+      border-radius: 3px;
+      font-size: 12px;
+      color: #495057;
+      margin-right: 8px;
+    }
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #e9ecef;
+      text-align: center;
+      font-size: 13px;
+      color: #6c757d;
+    }
+    .footer a {
+      color: #007bff;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="greeting">Hello ${subscriberName}! 👋</div>
+    <h1>📰 Your Personalized News Digest</h1>
+    <div class="date-header">${dateStr}</div>
+
+    <p style="font-style: italic; color: #6c757d; margin-bottom: 30px;">
+      Articles selected based on your interests: ${data.subscriber.categories.map((c: any) => c.category_name).join(', ')}
+    </p>
+
+    ${this.generateCategorySections(data.topCategories)}
+
+    ${data.mongolianNews.length > 0 ? this.generateSection('🇲🇳 More Mongolian News', data.mongolianNews) : ''}
+
+    ${data.globalNews.length > 0 ? this.generateSection('🌍 More Global News', data.globalNews) : ''}
+
+    <div class="footer">
+      <p>This newsletter was personalized based on your category preferences.</p>
+      <p><a href="${unsubscribeUrl}">Unsubscribe</a> | <a href="${process.env.BASE_URL || 'http://localhost:8080'}">Update Preferences</a></p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+  }
 }

@@ -2,9 +2,11 @@ import express from 'express';
 import { config } from './utils/config';
 import { Logger } from './utils/logger';
 import { query } from './database/db';
+import { SubscriberService } from './services/subscriber-service';
 
 const logger = new Logger('Server');
 const app = express();
+const subscriberService = new SubscriberService();
 
 app.use(express.json());
 
@@ -91,6 +93,131 @@ app.get('/api/stats', async (req, res) => {
   } catch (error) {
     logger.error('Failed to fetch stats:', error);
     res.status(500).json({ error: 'Failed to fetch statistics' });
+  }
+});
+
+// Get all categories
+app.get('/api/categories', async (req, res) => {
+  try {
+    const result = await query('SELECT id, name, name_mn, name_en FROM categories ORDER BY name');
+    res.json({ categories: result.rows });
+  } catch (error) {
+    logger.error('Failed to fetch categories:', error);
+    res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+});
+
+// Subscribe endpoint
+app.post('/api/subscribe', async (req, res) => {
+  try {
+    const { email, name, categoryIds, languagePreference } = req.body;
+
+    if (!email || !categoryIds || !Array.isArray(categoryIds)) {
+      return res.status(400).json({ error: 'Email and categoryIds are required' });
+    }
+
+    if (categoryIds.length < 3 || categoryIds.length > 5) {
+      return res.status(400).json({ error: 'Please select between 3 and 5 categories' });
+    }
+
+    const subscriber = await subscriberService.createSubscriber(
+      email,
+      name,
+      categoryIds,
+      languagePreference || 'en'
+    );
+
+    if (!subscriber) {
+      return res.status(400).json({ error: 'Failed to create subscription. Email may already exist.' });
+    }
+
+    // Send verification email (in production)
+    const verificationUrl = `${config.newsletter.baseUrl}/api/verify/${subscriber.verification_token}`;
+
+    res.json({
+      message: 'Subscription created! Please check your email to verify.',
+      subscriber: {
+        id: subscriber.id,
+        email: subscriber.email,
+        verificationUrl, // In production, send via email instead
+      },
+    });
+  } catch (error) {
+    logger.error('Failed to create subscription:', error);
+    res.status(500).json({ error: 'Failed to create subscription' });
+  }
+});
+
+// Verify subscription
+app.get('/api/verify/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const success = await subscriberService.verifySubscriber(token);
+
+    if (success) {
+      res.send('<h1>✅ Email Verified!</h1><p>Thank you for subscribing to the Mongolian News Digest.</p>');
+    } else {
+      res.status(400).send('<h1>❌ Invalid or expired verification link</h1>');
+    }
+  } catch (error) {
+    logger.error('Failed to verify subscriber:', error);
+    res.status(500).send('<h1>❌ Verification failed</h1>');
+  }
+});
+
+// Unsubscribe endpoint
+app.get('/api/unsubscribe/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const success = await subscriberService.unsubscribe(token);
+
+    if (success) {
+      res.send('<h1>Unsubscribed Successfully</h1><p>You have been removed from our mailing list.</p>');
+    } else {
+      res.status(400).send('<h1>Invalid unsubscribe link</h1>');
+    }
+  } catch (error) {
+    logger.error('Failed to unsubscribe:', error);
+    res.status(500).send('<h1>Unsubscribe failed</h1>');
+  }
+});
+
+// Update subscriber preferences
+app.put('/api/subscribers/:id/preferences', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { categoryIds } = req.body;
+
+    if (!categoryIds || !Array.isArray(categoryIds)) {
+      return res.status(400).json({ error: 'categoryIds array is required' });
+    }
+
+    const success = await subscriberService.updateCategoryPreferences(parseInt(id), categoryIds);
+
+    if (success) {
+      res.json({ message: 'Preferences updated successfully' });
+    } else {
+      res.status(400).json({ error: 'Failed to update preferences' });
+    }
+  } catch (error) {
+    logger.error('Failed to update preferences:', error);
+    res.status(500).json({ error: 'Failed to update preferences' });
+  }
+});
+
+// Get subscriber stats
+app.get('/api/subscribers/stats', async (req, res) => {
+  try {
+    const stats = await subscriberService.getSubscriberStats();
+    const popularity = await subscriberService.getCategoryPopularity();
+
+    res.json({
+      stats,
+      categoryPopularity: popularity,
+    });
+  } catch (error) {
+    logger.error('Failed to fetch subscriber stats:', error);
+    res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
 
