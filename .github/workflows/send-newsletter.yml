@@ -1,0 +1,59 @@
+name: Send Daily Newsletter
+
+on:
+  # Run every day at 7 AM UTC (3 PM Mongolia Time - UTC+8)
+  # This runs 1 hour after scraping to ensure fresh content
+  schedule:
+    - cron: '0 7 * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  send-newsletter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Generate and send newsletter
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUBSTACK_API_KEY: ${{ secrets.SUBSTACK_API_KEY }}
+          SUBSTACK_PUBLICATION_URL: ${{ secrets.SUBSTACK_PUBLICATION_URL }}
+          NEWSLETTER_FROM_NAME: ${{ secrets.NEWSLETTER_FROM_NAME }}
+          NEWSLETTER_SUBJECT_PREFIX: ${{ secrets.NEWSLETTER_SUBJECT_PREFIX }}
+          NODE_ENV: production
+        run: npm run send-newsletter
+
+      - name: Upload newsletter
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: newsletter-html
+          path: |
+            newsletters/*.html
+          retention-days: 30
+
+      - name: Upload newsletter logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: newsletter-logs
+          path: |
+            *.log
+          retention-days: 7
